@@ -1,0 +1,20 @@
+# N1MM Field Day Tracker - Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# PDF report generation (lightweight, pure-Python)
+reportlab>=4.0.0
+
+# PyInstaller for building the Windows .exe (dev/build only)
+pyinstaller>=6.0.0
+
+# Standard library only for everything else:
+# - tkinter  (GUI)           -> bundled with Python
+# - json     (storage)       -> stdlib
+# - csv      (import/export) -> stdlib
+# - socket   (UDP listener)  -> stdlib
+# - xml.etree.ElementTree    -> stdlib (N1MM XML parsing)
+# - threading                -> stdlib
+# - datetime / zoneinfo      -> stdlib
+# - pathlib                  -> stdlib
+# - logging                  -> stdlib
+# - unittest                 -> stdlib (tests)
