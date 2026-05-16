@@ -116,10 +116,10 @@ N1MM Field Day Tracker/
 The CSV file determines which stations participate in the Field Day.
 N1MM contacts from stations **not** in this list are silently ignored.
 
-**Required column:** `callsign`  
-**Optional columns:** `name`, `club`, `remarks`
+**Required field:** `callsign` (column name is configurable — see below)  
+**Optional fields:** `name`, `club`, `remarks` (column names configurable)
 
-**Example:**
+**Default example (standard column names):**
 ```csv
 callsign,name,club,remarks
 ON3VZ,Cornelis,WLD,
@@ -127,11 +127,29 @@ ON4ABC,,,
 ON5XY,Jan,UBA,Club secretary
 ```
 
-Rules:
-- One callsign per line
-- Callsigns are normalised (case-insensitive, `/P` `/M` `/QRP` stripped if strict=false)
-- Duplicate callsigns in the CSV are deduplicated (first occurrence wins)
-- Re-importing a CSV preserves existing manual overrides
+**Supported delimiters:** comma, semicolon, tab, pipe (auto-detected)  
+**Encoding:** UTF-8 or UTF-8 with BOM (Excel export works directly)
+
+### CSV Column Mapping
+
+If your CSV uses different column headers, configure the mapping in  
+**Tools → Settings → CSV Column Mapping**.
+
+| Internal field | Default CSV column | Example alternative |
+|---------------|-------------------|---------------------|
+| callsign | callsign | Roepnaam, Call, Indicatif |
+| name | name | Naam, Nom, Operator |
+| club | club | Club, Organisation |
+| remarks | remarks | Opmerkingen, Notes |
+
+Use **"Detect Columns from CSV…"** in the settings to preview the headers in your file before mapping them.
+
+### Re-import Rules
+
+- Existing **manual overrides** are always preserved
+- **Manually added** stations are always kept
+- Stations **absent from the new CSV** are flagged — you will be asked before they are removed
+- Duplicate callsigns in the CSV → first occurrence wins
 
 ---
 
@@ -192,6 +210,7 @@ Settings are stored in `app_settings.json` and survive restarts.
 | `default_selected_bands` | Bands pre-selected for new field days | `160m,80m,40m` |
 | `status_colors` | Colour overrides for each status | *(see settings dialog)* |
 | `export_folder` | Default export folder | `exports/` |
+| `csv_column_mapping` | Maps CSV column headers to internal field names | `callsign→callsign` etc. |
 
 ---
 
@@ -205,7 +224,41 @@ Settings are stored in `app_settings.json` and survive restarts.
 
 ---
 
-## Build as Windows .exe
+## Help System
+
+Context-sensitive help is available **everywhere** in the application:
+
+| How | Action |
+|-----|--------|
+| **F1 key** | Opens help for the current screen or dialog |
+| **? button** | Every dialog has a `?` button in the top-right corner |
+| **Help menu** | Access any topic from the menu bar |
+
+**Available help topics:** Main Window, Matrix View, Connection Status, Field Day Settings, Field Day Period, Band Selection, CSV Import, CSV Column Mapping, Add Station Manually, N1MM Setup, N1MM UDP Settings, Callsign Matching, Manual Overrides, Settings, Language Setting, Status Colours, CSV Export, PDF Export, Sync/Recalculate.
+
+All help texts are available in **English, Dutch, French and Spanish**.
+
+---
+
+## Data Storage
+
+All data is stored locally in plain JSON files — no database, no server required.
+
+```
+app_settings.json              ← global settings + last active field day
+fielddays/
+└── <fieldday_name>/
+    ├── fieldday.json          ← metadata, bands, period, N1MM settings
+    ├── stations.json          ← imported + manually added stations
+    ├── received_qsos.json     ← all QSOs received from N1MM via UDP
+    ├── overrides.json         ← manual status overrides (callsign + band)
+    ├── sync_log.json          ← sync history (last 100 entries)
+    └── exports/               ← CSV and PDF exports
+```
+
+**Safe atomic writes:** all JSON files are written via a temp-file-then-replace pattern. If the application crashes mid-write, the original file is always intact.
+
+---
 
 ```cmd
 venv\Scripts\activate
@@ -236,6 +289,39 @@ App data (field days, settings) are stored relative to the executable's location
 
 ---
 
+## Running Tests
+
+```cmd
+cd C:\N1MM_FieldDay
+venv\Scripts\activate
+python -m unittest discover tests -v
+```
+
+All business logic is tested independently of the GUI:
+
+| Test file | What it covers |
+|-----------|---------------|
+| `tests/test_callsign.py` | Normalisation, strict/non-strict matching, validation |
+| `tests/test_band_plan.py` | Band lookup, frequency→band, N1MM freq field parsing |
+| `tests/test_models.py` | FieldDay period, serialisation round-trips |
+| `tests/test_storage.py` | Atomic writes, repository CRUD, sync log |
+| `tests/test_csv_importer.py` | Import, re-import, column mapping, edge cases |
+
+---
+
+## Build as Windows .exe
+
+```cmd
+venv\Scripts\activate
+pip install pyinstaller
+pyinstaller --onefile --windowed --name "N1MM Field Day Tracker" app\main.py
+```
+
+The executable will appear in the `dist\` folder.  
+App data (field days, settings) are stored relative to the executable's location.
+
+---
+
 ## Architecture Notes
 
 - **No database** — all data in JSON files, one folder per field day
@@ -243,3 +329,6 @@ App data (field days, settings) are stored relative to the executable's location
 - **UTC everywhere** — all timestamps stored and compared in UTC
 - **Separation of concerns** — business logic is separate from UI
 - **Testable** — sync engine and matching logic have no UI dependencies
+- **Safe writes** — atomic temp-file-then-replace for all JSON files
+- **Configurable CSV** — column mapping makes any CSV format work
+- **Help everywhere** — F1 + ? button on every screen, 4 languages
