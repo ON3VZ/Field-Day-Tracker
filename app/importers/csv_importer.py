@@ -5,14 +5,28 @@ CSV station import for N1MM Field Day Tracker.
 
 CSV format
 ----------
-Required column : ``callsign``
-Optional columns: ``name``, ``club``, ``remarks``
+Required field : ``callsign``  (column name is configurable)
+Optional fields: ``name``, ``club``, ``remarks``  (column names configurable)
+
+The column mapping is configured in Settings → CSV Column Mapping.
+Default mapping (column name in CSV → internal field name):
+
+    callsign → callsign
+    name     → name
+    club     → club
+    remarks  → remarks
+
+A user whose CSV uses Dutch headers can configure e.g.:
+    Roepnaam  → callsign
+    Naam      → name
+    Club      → club
+    Notities  → remarks
 
 The file may use any delimiter that Python's csv.Sniffer can detect
 (comma is the default).  A header row is required.  Extra columns are
 silently ignored.
 
-Example::
+Example (default mapping)::
 
     callsign,name,club,remarks
     ON3VZ,Cornelis,WLD,
@@ -34,7 +48,7 @@ When a CSV is imported into a field day that already has stations:
 
 Public API
 ----------
-CSVImporter.import_csv(path, existing_stations, strict)
+CSVImporter.import_csv(path, existing_stations, strict, column_mapping)
     → ImportResult
 """
 
@@ -50,11 +64,19 @@ from app.core.models import Station
 
 log = logging.getLogger(__name__)
 
-# Column names we recognise (all lower-cased before matching)
-_COL_CALLSIGN = "callsign"
-_COL_NAME = "name"
-_COL_CLUB = "club"
-_COL_REMARKS = "remarks"
+# Internal field names (always English, never change)
+_FIELD_CALLSIGN = "callsign"
+_FIELD_NAME     = "name"
+_FIELD_CLUB     = "club"
+_FIELD_REMARKS  = "remarks"
+
+# Default column mapping: internal field → CSV header name
+DEFAULT_COLUMN_MAPPING: dict[str, str] = {
+    _FIELD_CALLSIGN: "callsign",
+    _FIELD_NAME:     "name",
+    _FIELD_CLUB:     "club",
+    _FIELD_REMARKS:  "remarks",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -87,6 +109,8 @@ class ImportResult:
         Non-fatal error messages (e.g. unreadable rows).
     total_csv_rows:
         Total data rows read from the CSV (excluding header).
+    column_mapping_used:
+        The column mapping that was actually used for this import.
     """
 
     stations: list[Station] = field(default_factory=list)
@@ -98,6 +122,9 @@ class ImportResult:
     manually_added_kept: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     total_csv_rows: int = 0
+    column_mapping_used: dict[str, str] = field(
+        default_factory=lambda: dict(DEFAULT_COLUMN_MAPPING)
+    )
 
     @property
     def success(self) -> bool:
@@ -131,6 +158,7 @@ class CSVImporter:
         existing_stations: list[Station] | None = None,
         *,
         strict: bool = False,
+        column_mapping: dict[str, str] | None = None,
     ) -> ImportResult:
         """Parse *path* and merge with *existing_stations*.
 
@@ -144,6 +172,11 @@ class CSVImporter:
         strict:
             Callsign normalisation mode.  Passed through to
             :func:`app.core.callsign.normalize`.
+        column_mapping:
+            Dict mapping internal field names to CSV column header names.
+            Keys: ``"callsign"``, ``"name"``, ``"club"``, ``"remarks"``.
+            Defaults to :data:`DEFAULT_COLUMN_MAPPING`.
+            Any missing key falls back to the default.
 
         Returns
         -------
@@ -157,33 +190,40 @@ class CSVImporter:
         result = ImportResult()
         existing_stations = existing_stations or []
 
+        # Resolve effective mapping (merge with defaults)
+        effective_mapping = dict(DEFAULT_COLUMN_MAPPING)
+        if column_mapping:
+            for k, v in column_mapping.items():
+                if k in effective_mapping and isinstance(v, str) and v.strip():
+                    effective_mapping[k] = v.strip()
+        result.column_mapping_used = effective_mapping
+
         # --- Read CSV ---
         try:
-            csv_rows = _read_csv(path, result)
+            csv_rows = _read_csv(path, result, effective_mapping)
         except OSError as exc:
             result.errors.append(f"Cannot open file: {exc}")
             log.error("CSV import failed: %s", exc)
             return result
 
         if not csv_rows:
-            result.errors.append("No valid data rows found in CSV.")
+            if not result.errors:
+                result.errors.append("No valid data rows found in CSV.")
             return result
 
         # --- Build lookup of existing stations ---
-        # Key: normalized_callsign → Station
         existing_map: dict[str, Station] = {
             s.normalized_callsign: s for s in existing_stations
         }
 
         # --- Process CSV rows ---
-        seen_in_csv: set[str] = set()   # normalised callsigns seen in this CSV
-        merged: dict[str, Station] = {} # result map: norm_call → Station
+        seen_in_csv: set[str] = set()
+        merged: dict[str, Station] = {}
 
         for row in csv_rows:
             result.total_csv_rows += 1
-            raw_call = row.get(_COL_CALLSIGN, "").strip()
+            raw_call = row.get(_FIELD_CALLSIGN, "").strip()
 
-            # Validate
             if not is_valid_callsign(raw_call):
                 log.debug("Skipping invalid callsign: %r", raw_call)
                 result.skipped_invalid.append(raw_call)
@@ -191,40 +231,31 @@ class CSVImporter:
 
             norm_call = normalize(raw_call, strict=strict)
 
-            # Deduplicate within CSV
             if norm_call in seen_in_csv:
                 log.debug("Duplicate callsign in CSV: %s", norm_call)
                 result.skipped_duplicate.append(norm_call)
                 continue
             seen_in_csv.add(norm_call)
 
-            # Build Station
             if norm_call in existing_map:
-                # Update existing CSV-sourced station with fresh CSV data
                 station = existing_map[norm_call]
                 if station.source == "csv":
-                    station.name = row.get(_COL_NAME, station.name).strip()
-                    station.club = row.get(_COL_CLUB, station.club).strip()
-                    # Preserve existing remarks if CSV column is empty
-                    csv_remarks = row.get(_COL_REMARKS, "").strip()
+                    station.name    = row.get(_FIELD_NAME, station.name).strip()
+                    station.club    = row.get(_FIELD_CLUB, station.club).strip()
+                    csv_remarks     = row.get(_FIELD_REMARKS, "").strip()
                     if csv_remarks:
                         station.remarks = csv_remarks
-                    station.callsign = raw_call
+                    station.callsign            = raw_call
                     station.normalized_callsign = norm_call
-                    result.updated.append(norm_call)
-                    log.debug("Updated station: %s", norm_call)
-                else:
-                    # Manually added station also matches this CSV call →
-                    # keep it but mark as updated
-                    result.updated.append(norm_call)
+                result.updated.append(norm_call)
+                log.debug("Updated station: %s", norm_call)
             else:
-                # New station from CSV
                 station = Station(
                     callsign=raw_call,
                     normalized_callsign=norm_call,
-                    name=row.get(_COL_NAME, "").strip(),
-                    club=row.get(_COL_CLUB, "").strip(),
-                    remarks=row.get(_COL_REMARKS, "").strip(),
+                    name=row.get(_FIELD_NAME, "").strip(),
+                    club=row.get(_FIELD_CLUB, "").strip(),
+                    remarks=row.get(_FIELD_REMARKS, "").strip(),
                     source="csv",
                 )
                 result.added.append(norm_call)
@@ -235,29 +266,23 @@ class CSVImporter:
         # --- Handle existing stations not in new CSV ---
         for norm_call, station in existing_map.items():
             if norm_call in merged:
-                continue  # already processed
+                continue
 
             if station.source == "manual":
-                # Always keep manually added stations
                 merged[norm_call] = station
                 result.manually_added_kept.append(norm_call)
                 log.debug("Kept manually added station: %s", norm_call)
             else:
-                # CSV-sourced station missing from new CSV → flag for user
-                # Still include in result so the UI can show it before asking
+                # Flag for user confirmation; keep in result for now
                 merged[norm_call] = station
                 result.removed_callsigns.append(norm_call)
-                log.debug(
-                    "Station %s no longer in CSV (flagged for removal)", norm_call
-                )
+                log.debug("Station %s no longer in CSV (flagged for removal)", norm_call)
 
-        # --- Preserve original order: existing first, new at end ---
+        # --- Preserve order: existing first, new at end ---
         final_stations: list[Station] = []
-        # First: existing stations that are still present (preserves original order)
         for s in existing_stations:
             if s.normalized_callsign in merged:
                 final_stations.append(merged.pop(s.normalized_callsign))
-        # Then: newly added stations (in CSV order)
         for norm_call in result.added:
             if norm_call in merged:
                 final_stations.append(merged.pop(norm_call))
@@ -266,10 +291,8 @@ class CSVImporter:
 
         log.info(
             "CSV import complete: %d added, %d updated, %d invalid, %d removed",
-            len(result.added),
-            len(result.updated),
-            len(result.skipped_invalid),
-            len(result.removed_callsigns),
+            len(result.added), len(result.updated),
+            len(result.skipped_invalid), len(result.removed_callsigns),
         )
         return result
 
@@ -303,16 +326,51 @@ class CSVImporter:
         )
         return result
 
+    @staticmethod
+    def detect_columns(path: Path | str) -> list[str]:
+        """Return the column headers found in the CSV file.
+
+        Useful for the settings UI to let the user map their columns.
+
+        Parameters
+        ----------
+        path:
+            Path to the CSV file.
+
+        Returns
+        -------
+        list[str]
+            List of header names as they appear in the file, or empty list
+            on error.
+        """
+        try:
+            with Path(path).open(newline="", encoding="utf-8-sig") as fh:
+                sample = fh.read(4096)
+                fh.seek(0)
+                try:
+                    dialect = csv.Sniffer().sniff(sample, delimiters=",;\t|")
+                except csv.Error:
+                    dialect = csv.excel
+                reader = csv.DictReader(fh, dialect=dialect)
+                return list(reader.fieldnames or [])
+        except Exception as exc:  # noqa: BLE001
+            log.warning("detect_columns failed: %s", exc)
+            return []
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _read_csv(path: Path, result: ImportResult) -> list[dict[str, str]]:
-    """Read CSV rows into a list of dicts with lowercased keys.
+def _read_csv(
+    path: Path,
+    result: ImportResult,
+    mapping: dict[str, str],
+) -> list[dict[str, str]]:
+    """Read CSV rows, applying *mapping* to translate column names.
 
-    Validates that the ``callsign`` column is present.
-    Populates ``result.errors`` for non-fatal issues.
+    Returns a list of dicts keyed by **internal** field names
+    (``callsign``, ``name``, ``club``, ``remarks``).
 
     Raises
     ------
@@ -322,37 +380,53 @@ def _read_csv(path: Path, result: ImportResult) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
 
     with path.open(newline="", encoding="utf-8-sig") as fh:
-        # Detect delimiter
         sample = fh.read(4096)
         fh.seek(0)
         try:
             dialect = csv.Sniffer().sniff(sample, delimiters=",;\t|")
         except csv.Error:
-            dialect = csv.excel  # fall back to comma
+            dialect = csv.excel
 
         reader = csv.DictReader(fh, dialect=dialect)
 
-        # Validate header
         if reader.fieldnames is None:
             result.errors.append("CSV file appears to be empty.")
             return rows
 
-        # Normalise column names to lower-case for comparison
-        lower_fields = [f.lower().strip() for f in reader.fieldnames]
-        if _COL_CALLSIGN not in lower_fields:
-            result.errors.append(
-                f"CSV is missing the required '{_COL_CALLSIGN}' column. "
-                f"Found columns: {list(reader.fieldnames)}"
-            )
-            return rows
+        # Build reverse lookup: lower(csv_col) → internal_field
+        # e.g. {"roepnaam": "callsign", "naam": "name", ...}
+        reverse: dict[str, str] = {}
+        for internal_field, csv_col in mapping.items():
+            reverse[csv_col.lower().strip()] = internal_field
 
-        # Build a normalised-key reader
-        for i, row in enumerate(reader, start=2):  # line 2 = first data row
+        # Also check which internal fields are present via the mapping
+        csv_headers_lower = [f.lower().strip() for f in reader.fieldnames]
+        mapped_callsign_col = mapping.get(_FIELD_CALLSIGN, _FIELD_CALLSIGN).lower()
+
+        if mapped_callsign_col not in csv_headers_lower:
+            # Try the default column name as fallback
+            if _FIELD_CALLSIGN not in csv_headers_lower:
+                result.errors.append(
+                    f"CSV is missing the required callsign column. "
+                    f"Expected column name: '{mapping.get(_FIELD_CALLSIGN, 'callsign')}'. "
+                    f"Found columns: {list(reader.fieldnames)}. "
+                    f"Adjust the CSV Column Mapping in Settings."
+                )
+                return rows
+
+        for i, row in enumerate(reader, start=2):
             try:
-                normalised = {k.lower().strip(): (v or "").strip() for k, v in row.items()}
-                rows.append(normalised)
+                # Translate CSV column names → internal field names
+                translated: dict[str, str] = {}
+                for csv_col, value in row.items():
+                    if csv_col is None:
+                        continue
+                    internal = reverse.get(csv_col.lower().strip())
+                    if internal:
+                        translated[internal] = (value or "").strip()
+                rows.append(translated)
             except Exception as exc:  # noqa: BLE001
-                msg = f"Row {i}: skipped due to error ({exc})"
+                msg = f"Row {i}: skipped ({exc})"
                 result.errors.append(msg)
                 log.warning("CSV row error: %s", msg)
 

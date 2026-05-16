@@ -101,6 +101,14 @@ class AppSettings:
     )
     export_folder: str = "exports"
     last_active_fieldday: Optional[str] = None
+    csv_column_mapping: dict[str, str] = field(
+        default_factory=lambda: {
+            "callsign": "callsign",
+            "name":     "name",
+            "club":     "club",
+            "remarks":  "remarks",
+        }
+    )
 
     # ------------------------------------------------------------------
     # Serialisation
@@ -118,6 +126,7 @@ class AppSettings:
             "status_colors": self.status_colors,
             "export_folder": self.export_folder,
             "last_active_fieldday": self.last_active_fieldday,
+            "csv_column_mapping": self.csv_column_mapping,
         }
 
     @classmethod
@@ -139,6 +148,11 @@ class AppSettings:
         s.status_colors = data.get("status_colors", s.status_colors)
         s.export_folder = data.get("export_folder", s.export_folder)
         s.last_active_fieldday = data.get("last_active_fieldday")
+        if "csv_column_mapping" in data and isinstance(data["csv_column_mapping"], dict):
+            # Merge: keep defaults for any key not in saved mapping
+            for k, v in data["csv_column_mapping"].items():
+                if isinstance(k, str) and isinstance(v, str):
+                    s.csv_column_mapping[k] = v
         return s
 
 

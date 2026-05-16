@@ -377,6 +377,48 @@ _STRINGS: dict[str, dict[str, str]] = {
         "fr": "Dossier d'export",
         "es": "Carpeta de exportación",
     },
+    "lbl_csv_column_mapping": {
+        "en": "CSV Column Mapping",
+        "nl": "CSV-kolomtoewijzing",
+        "fr": "Mappage des colonnes CSV",
+        "es": "Mapeo de columnas CSV",
+    },
+    "lbl_csv_col_callsign": {
+        "en": "Callsign column name in CSV",
+        "nl": "Kolomnaam voor callsign in CSV",
+        "fr": "Nom de colonne indicatif dans CSV",
+        "es": "Nombre de columna indicativo en CSV",
+    },
+    "lbl_csv_col_name": {
+        "en": "Name column name in CSV",
+        "nl": "Kolomnaam voor naam in CSV",
+        "fr": "Nom de colonne nom dans CSV",
+        "es": "Nombre de columna nombre en CSV",
+    },
+    "lbl_csv_col_club": {
+        "en": "Club column name in CSV",
+        "nl": "Kolomnaam voor club in CSV",
+        "fr": "Nom de colonne club dans CSV",
+        "es": "Nombre de columna club en CSV",
+    },
+    "lbl_csv_col_remarks": {
+        "en": "Remarks column name in CSV",
+        "nl": "Kolomnaam voor opmerkingen in CSV",
+        "fr": "Nom de colonne remarques dans CSV",
+        "es": "Nombre de columna observaciones en CSV",
+    },
+    "btn_detect_columns": {
+        "en": "Detect Columns from CSV…",
+        "nl": "Kolommen detecteren uit CSV…",
+        "fr": "Détecter les colonnes du CSV…",
+        "es": "Detectar columnas del CSV…",
+    },
+    "msg_columns_detected": {
+        "en": "Columns found in CSV: {columns}",
+        "nl": "Kolommen gevonden in CSV: {columns}",
+        "fr": "Colonnes trouvées dans le CSV : {columns}",
+        "es": "Columnas encontradas en el CSV: {columns}",
+    },
     "lbl_status_colors": {
         "en": "Status Colours",
         "nl": "Statuskleuren",
