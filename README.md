@@ -461,6 +461,7 @@ All business logic is tested independently of the GUI:
 | `tests/test_app_controller.py` | Controller: field day CRUD, sync, overrides, CSV, observers |
 | `tests/test_exporters.py` | CSV export columns/UTF-8/sort, PDF creation/landscape/colours |
 | `tests/test_security.py` | Token encrypt/decrypt, HTML export smoke tests |
+| `tests/test_end_to_end.py` | 60 e2e tests: volledige workflow, alle 7 business rules |
 
 ---
 
