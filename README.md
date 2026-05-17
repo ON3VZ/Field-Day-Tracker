@@ -294,11 +294,28 @@ Every time N1MM Logger+ sends a contact via UDP, the matrix updates in real time
 | **Band from frequency** | If N1MM doesn't send a band name, it is derived from the frequency |
 | **Strict matching** | Configurable — `/P` `/M` `/QRP` suffixes stripped when off |
 
-- **CSV Export:** File → Export → CSV  
-  Columns: callsign, normalized_callsign, band, status, source, mode, frequency, worked_timestamp_utc, manual_override, remarks
+## Export
 
-- **PDF Report:** File → Export → PDF Report  
-  Includes: title, field day details, statistics summary, legend, full station×band matrix.
+### CSV Export — File → Export → CSV
+
+Exports the full station × band matrix to a CSV file.
+
+**Columns:** `callsign`, `normalized_callsign`, `band`, `status`, `source`, `mode`, `frequency_mhz`, `worked_timestamp_utc`, `manual_override`, `remarks`
+
+- One row per station × band combination, sorted callsign A→Z
+- UTF-8 with BOM (opens correctly in Excel)
+- `manual_override` = `yes` / `no`; frequency in MHz (4 decimal places)
+
+### PDF Report — File → Export → PDF Report
+
+Professional print-ready PDF containing:
+1. **Title block** — field day details, export timestamp
+2. **Summary statistics** — worked/unworked counts, fully/partially/not-worked stations, % complete
+3. **Legend** — colour swatches for each status
+4. **Station × Band matrix** — full coloured grid, override markers (`*`)
+
+Uses landscape A4 automatically when more than 6 bands are selected.
+Default export folder: **Tools → Settings → Export tab** (a sub-folder per field day is created).
 
 ---
 
@@ -388,6 +405,7 @@ All business logic is tested independently of the GUI:
 | `tests/test_sync_engine.py` | All 7 business rules, real-time update, statistics |
 | `tests/test_n1mm_parser.py` | XML parsing, frequency conversion, edge cases |
 | `tests/test_app_controller.py` | Controller: field day CRUD, sync, overrides, CSV, observers |
+| `tests/test_exporters.py` | CSV export columns/UTF-8/sort, PDF creation/landscape/colours |
 
 ---
 

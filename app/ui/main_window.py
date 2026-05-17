@@ -343,13 +343,61 @@ class MainWindow:
         if not self._ctrl.has_active_fieldday:
             messagebox.showinfo(t("menu_export_csv"), t("no_active_fieldday"))
             return
-        messagebox.showinfo(t("menu_export_csv"), "CSV export — implemented in Step 11.")
+        from app.exporters.csv_exporter import CSVExporter
+        default_name = CSVExporter.default_filename(self._ctrl.fieldday)
+        folder = self._ctrl.get_export_folder()
+        path = filedialog.asksaveasfilename(
+            title=t("menu_export_csv"),
+            initialdir=str(folder),
+            initialfile=default_name,
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+        )
+        if not path:
+            return
+        result = self._ctrl.export_csv(Path(path))
+        if result.success:
+            messagebox.showinfo(
+                t("menu_export_csv"),
+                f"Exported {result.rows_written} rows to:\n{result.path}",
+            )
+        else:
+            messagebox.showerror(t("menu_export_csv"),
+                                 f"Export failed:\n{result.error}")
 
     def _cmd_export_pdf(self) -> None:
         if not self._ctrl.has_active_fieldday:
             messagebox.showinfo(t("menu_export_pdf"), t("no_active_fieldday"))
             return
-        messagebox.showinfo(t("menu_export_pdf"), "PDF export — implemented in Step 11.")
+        from app.exporters.pdf_exporter import PDFExporter
+        default_name = PDFExporter.default_filename(self._ctrl.fieldday)
+        folder = self._ctrl.get_export_folder()
+        path = filedialog.asksaveasfilename(
+            title=t("menu_export_pdf"),
+            initialdir=str(folder),
+            initialfile=default_name,
+            defaultextension=".pdf",
+            filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")],
+        )
+        if not path:
+            return
+        result = self._ctrl.export_pdf(Path(path))
+        if result.success:
+            ans = messagebox.askyesno(
+                t("menu_export_pdf"),
+                f"PDF report saved to:\n{result.path}\n\nOpen the file now?",
+            )
+            if ans:
+                import subprocess, sys
+                if sys.platform == "win32":
+                    subprocess.Popen(["start", "", str(result.path)], shell=True)
+                elif sys.platform == "darwin":
+                    subprocess.Popen(["open", str(result.path)])
+                else:
+                    subprocess.Popen(["xdg-open", str(result.path)])
+        else:
+            messagebox.showerror(t("menu_export_pdf"),
+                                 f"Export failed:\n{result.error}")
 
     def _cmd_refresh(self) -> None:
         self._refresh_centre()

@@ -104,6 +104,43 @@ class AppController:
         # Start UDP listener
         self._start_listener()
 
+    # ------------------------------------------------------------------
+    # Export
+    # ------------------------------------------------------------------
+
+    def export_csv(self, path: Path) -> "ExportResult":
+        """Export the current matrix to a CSV file."""
+        from app.exporters.csv_exporter import CSVExporter, ExportResult
+        if not self._fieldday:
+            return ExportResult(path=path, rows_written=0, success=False,
+                                error="No active field day.")
+        return CSVExporter.export(
+            path, self._fieldday, self._stations, self._matrix
+        )
+
+    def export_pdf(self, path: Path) -> "ExportResult":
+        """Export a PDF report of the current field day."""
+        from app.exporters.pdf_exporter import PDFExporter, ExportResult
+        if not self._fieldday:
+            return ExportResult(path=path, success=False,
+                                error="No active field day.")
+        return PDFExporter.export(
+            path, self._fieldday, self._stations,
+            self._matrix, self._settings
+        )
+
+    def get_export_folder(self) -> Path:
+        """Return the configured export folder, creating it if needed."""
+        from app.storage.json_store import ensure_dir
+        folder = self._settings.export_folder or "exports"
+        p = Path(folder)
+        if not p.is_absolute():
+            p = self._app_root / p
+        if self._fieldday:
+            p = p / self._fieldday.name
+        ensure_dir(p)
+        return p
+
     def shutdown(self) -> None:
         """Stop listener and persist any pending state."""
         if self._listener:
