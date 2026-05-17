@@ -220,19 +220,55 @@ Manual overrides are stored per **callsign + band** and always take priority.
 
 ## Settings
 
-Settings are stored in `app_settings.json` and survive restarts.
+Open via **Tools → Settings** (or toolbar ⚙ button).
+
+### General tab
 
 | Setting | Description | Default |
 |---------|-------------|---------|
-| `ui_language` | Interface language (en/nl/fr/es) | `en` |
-| `n1mm_udp_host` | UDP listen address | `127.0.0.1` |
-| `n1mm_udp_port` | UDP listen port | `12060` |
-| `freshness_threshold_seconds` | Seconds before connection shown as stale | `30` |
-| `strict_callsign_matching` | Exact match vs. normalised match | `false` |
-| `default_selected_bands` | Bands pre-selected for new field days | `160m,80m,40m` |
-| `status_colors` | Colour overrides for each status | *(see settings dialog)* |
-| `export_folder` | Default export folder | `exports/` |
-| `csv_column_mapping` | Maps CSV column headers to internal field names | `callsign→callsign` etc. |
+| **Interface Language** | EN / NL / FR / ES — takes effect immediately | `en` |
+| **Strict Callsign Matching** | OFF: ON3VZ/P matches ON3VZ. ON: exact match only | OFF |
+| **Default Bands** | Bands pre-ticked when creating a new field day | 160m, 80m, 40m |
+
+### N1MM / UDP tab
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| **UDP Host** | IP address to listen on (127.0.0.1 = same PC) | `127.0.0.1` |
+| **UDP Port** | Must match N1MM Broadcast Data destination | `12060` |
+| **Freshness Threshold** | Seconds before connection shown as stale | `30` |
+
+The tab also shows the N1MM setup guide (steps 1–5) for quick reference.
+
+### Appearance tab
+
+Customise the background colour of each matrix cell status.
+Click any colour swatch or **Choose…** to open a colour picker.
+Changes preview immediately. **Reset to defaults** restores factory colours.
+
+| Status | Default colour |
+|--------|----------------|
+| Not Worked | White `#FFFFFF` |
+| Worked (N1MM) | Green `#4CAF50` |
+| Worked (Manual) | Dark green `#1B5E20` |
+| Not Worked (Manual) | Amber `#FFC107` |
+| Excluded | Grey `#9E9E9E` |
+
+### CSV Mapping tab
+
+Map your CSV column headers to internal field names.
+Use **Detect Columns from CSV…** to preview the headers in a file.
+
+| Internal field | Default CSV column |
+|---------------|-------------------|
+| callsign (required) | `callsign` |
+| name | `name` |
+| club | `club` |
+| remarks | `remarks` |
+
+### Export tab
+
+Set the default folder where CSV and PDF exports are saved.
 
 ---
 

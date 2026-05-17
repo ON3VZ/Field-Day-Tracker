@@ -410,7 +410,12 @@ class MainWindow:
         tk.Button(bf, text=t("btn_cancel"), command=win.destroy, width=10).pack(side=tk.LEFT, padx=4)
 
     def _cmd_settings(self) -> None:
-        messagebox.showinfo(t("menu_settings"), "Full settings dialog — implemented in Step 9.")
+        from app.ui.settings_dialog import SettingsDialog
+        SettingsDialog(self._root, self._ctrl)
+        # controller.update_settings was called inside dialog on Save
+        # refresh the matrix to pick up any colour / band changes
+        if self._ctrl.has_active_fieldday:
+            self._refresh_centre()
 
     def _show_about(self) -> None:
         messagebox.showinfo(t("dlg_about_title"), t("dlg_about_text"))
