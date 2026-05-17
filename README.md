@@ -214,7 +214,27 @@ Settings are stored in `app_settings.json` and survive restarts.
 
 ---
 
-## Export
+## Sync / Recalculate
+
+### Automatic sync
+Every time N1MM Logger+ sends a contact via UDP, the matrix updates in real time — no action needed.
+
+### Manual sync
+**Tools → Manual Sync / Recalculate** re-processes all stored QSOs from scratch. Use this after:
+- Changing field day settings (bands, period, strict matching)
+- A crash or missed UDP packets
+- Importing a new station CSV
+
+### Business rules (always enforced)
+| Rule | Description |
+|------|-------------|
+| **Manual override wins** | Always, unconditionally — even if N1MM logs the same contact again |
+| **Period filter** | QSOs outside start/end window are ignored |
+| **Unknown stations** | N1MM contacts not in the station list are silently ignored |
+| **Callsign + band** | Status is per callsign+band, not per QSO count |
+| **UTC** | All timestamps stored and compared in UTC |
+| **Band from frequency** | If N1MM doesn't send a band name, it is derived from the frequency |
+| **Strict matching** | Configurable — `/P` `/M` `/QRP` suffixes stripped when off |
 
 - **CSV Export:** File → Export → CSV  
   Columns: callsign, normalized_callsign, band, status, source, mode, frequency, worked_timestamp_utc, manual_override, remarks
@@ -306,6 +326,8 @@ All business logic is tested independently of the GUI:
 | `tests/test_models.py` | FieldDay period, serialisation round-trips |
 | `tests/test_storage.py` | Atomic writes, repository CRUD, sync log |
 | `tests/test_csv_importer.py` | Import, re-import, column mapping, edge cases |
+| `tests/test_matching.py` | QSO↔station matching, band resolution |
+| `tests/test_sync_engine.py` | All 7 business rules, real-time update, statistics |
 
 ---
 
