@@ -91,18 +91,21 @@ class SettingsDialog:
         self._tab_appearance = tk.Frame(self._nb, padx=14, pady=10)
         self._tab_csv        = tk.Frame(self._nb, padx=14, pady=10)
         self._tab_export     = tk.Frame(self._nb, padx=14, pady=10)
+        self._tab_publish    = tk.Frame(self._nb, padx=14, pady=10)
 
         self._nb.add(self._tab_general,    text=f"  {t('menu_settings').replace('…','')}  ")
         self._nb.add(self._tab_connection, text="  N1MM / UDP  ")
         self._nb.add(self._tab_appearance, text="  Appearance  ")
         self._nb.add(self._tab_csv,        text="  CSV Mapping  ")
         self._nb.add(self._tab_export,     text="  Export  ")
+        self._nb.add(self._tab_publish,    text="  📡 Publish  ")
 
         self._build_tab_general()
         self._build_tab_connection()
         self._build_tab_appearance()
         self._build_tab_csv()
         self._build_tab_export()
+        self._build_tab_publish()
 
         # ── Bottom buttons ───────────────────────────────────────────────────
         btn_bar = tk.Frame(self._win)
@@ -458,6 +461,156 @@ class SettingsDialog:
     # Tab: Export
     # =========================================================================
 
+    def _build_tab_publish(self) -> None:
+        """GitHub Pages publish settings."""
+        tab = self._tab_publish
+        r = 0
+
+        self._section(tab, "GitHub Pages Live Publishing", r); r += 1
+
+        tk.Label(
+            tab,
+            text=(
+                "Publish the station matrix as a live web page on GitHub Pages.
+"
+                "People at home can follow the field day in real time."
+            ),
+            fg="#1e3a5f", font=("Segoe UI", 9),
+            wraplength=480, justify=tk.LEFT,
+        ).grid(row=r, column=0, columnspan=3, sticky=tk.W,
+               padx=(20, 0), pady=(0, 8))
+        r += 1
+
+        def _lbl(text): return tk.Label(tab, text=text, width=_LBL_W,
+                                        anchor=tk.W, font=("Segoe UI", 9))
+
+        # Token
+        _lbl("GitHub Token (fine-grained)").grid(
+            row=r, column=0, sticky=tk.W, padx=(20, 0), pady=4)
+        self._gh_token_var = tk.StringVar()
+        token_frame = tk.Frame(tab)
+        token_frame.grid(row=r, column=1, columnspan=2, sticky=tk.EW, pady=4)
+        self._gh_token_entry = ttk.Entry(
+            token_frame, textvariable=self._gh_token_var,
+            width=40, show="•")
+        self._gh_token_entry.pack(side=tk.LEFT)
+        self._show_token_var = tk.BooleanVar(value=False)
+        def _toggle_show():
+            self._gh_token_entry.config(
+                show="" if self._show_token_var.get() else "•")
+        tk.Checkbutton(token_frame, text="Show",
+                       variable=self._show_token_var,
+                       command=_toggle_show).pack(side=tk.LEFT, padx=6)
+        r += 1
+
+        # Repository
+        _lbl("Repository (owner/name)").grid(
+            row=r, column=0, sticky=tk.W, padx=(20, 0), pady=4)
+        self._gh_repo_var = tk.StringVar()
+        repo_frame = tk.Frame(tab)
+        repo_frame.grid(row=r, column=1, columnspan=2, sticky=tk.W, pady=4)
+        ttk.Entry(repo_frame, textvariable=self._gh_repo_var, width=30).pack(side=tk.LEFT)
+        tk.Label(repo_frame, text="  e.g. ON3VZ/Field-Day-Tracker",
+                 fg="#888", font=("Segoe UI", 8)).pack(side=tk.LEFT, padx=4)
+        r += 1
+
+        # Pages URL (auto-filled)
+        _lbl("Pages URL (auto-detected)").grid(
+            row=r, column=0, sticky=tk.W, padx=(20, 0), pady=4)
+        self._gh_url_var = tk.StringVar()
+        url_frame = tk.Frame(tab)
+        url_frame.grid(row=r, column=1, columnspan=2, sticky=tk.W, pady=4)
+        ttk.Entry(url_frame, textvariable=self._gh_url_var, width=40).pack(side=tk.LEFT)
+        r += 1
+
+        # Validate button
+        def _validate():
+            from app.exporters.github_pages_publisher import GHPagesPublisher
+            token = self._gh_token_var.get().strip()
+            repo  = self._gh_repo_var.get().strip()
+            ok, msg = GHPagesPublisher.validate_token(token, repo)
+            color = "#2e7d32" if ok else "#c62828"
+            self._gh_validate_lbl.config(text=msg, fg=color)
+
+        vf = tk.Frame(tab)
+        vf.grid(row=r, column=0, columnspan=3, sticky=tk.W, padx=(20, 0), pady=4)
+        tk.Button(vf, text="🔑  Validate Token & Repo",
+                  command=_validate, font=("Segoe UI", 9), padx=6).pack(side=tk.LEFT)
+        self._gh_validate_lbl = tk.Label(vf, text="", font=("Segoe UI", 9))
+        self._gh_validate_lbl.pack(side=tk.LEFT, padx=10)
+        r += 1
+
+        # Separator
+        ttk.Separator(tab, orient=tk.HORIZONTAL).grid(
+            row=r, column=0, columnspan=3, sticky=tk.EW,
+            padx=(20, 0), pady=8)
+        r += 1
+
+        # Auto-publish
+        auto_frame = tk.Frame(tab)
+        auto_frame.grid(row=r, column=0, columnspan=3, sticky=tk.W,
+                        padx=(20, 0), pady=4)
+        self._gh_auto_var = tk.BooleanVar()
+        tk.Checkbutton(auto_frame, text="Auto-publish on every matrix update",
+                       variable=self._gh_auto_var,
+                       font=("Segoe UI", 10)).pack(side=tk.LEFT)
+        r += 1
+
+        # Interval
+        _lbl("Minimum interval between publishes").grid(
+            row=r, column=0, sticky=tk.W, padx=(20, 0), pady=4)
+        self._gh_interval_var = tk.StringVar()
+        if_frame = tk.Frame(tab)
+        if_frame.grid(row=r, column=1, sticky=tk.W, pady=4)
+        ttk.Entry(if_frame, textvariable=self._gh_interval_var, width=6).pack(side=tk.LEFT)
+        tk.Label(if_frame, text=" seconds (min: 30)",
+                 fg="#888", font=("Segoe UI", 8)).pack(side=tk.LEFT, padx=4)
+        r += 1
+
+        # Page refresh
+        _lbl("Browser auto-refresh on page").grid(
+            row=r, column=0, sticky=tk.W, padx=(20, 0), pady=4)
+        self._gh_refresh_var = tk.StringVar()
+        rf_frame = tk.Frame(tab)
+        rf_frame.grid(row=r, column=1, sticky=tk.W, pady=4)
+        ttk.Entry(rf_frame, textvariable=self._gh_refresh_var, width=6).pack(side=tk.LEFT)
+        tk.Label(rf_frame, text=" seconds (min: 15)",
+                 fg="#888", font=("Segoe UI", 8)).pack(side=tk.LEFT, padx=4)
+        r += 1
+
+        # Last published
+        self._gh_last_lbl = tk.Label(
+            tab, text="Last published: never",
+            fg="#888", font=("Segoe UI", 8))
+        self._gh_last_lbl.grid(
+            row=r, column=0, columnspan=3, sticky=tk.W,
+            padx=(20, 0), pady=(4, 0))
+        r += 1
+
+        # Setup instructions
+        r += 1
+        self._section(tab, "One-time GitHub Pages Setup", r); r += 1
+
+        instructions = (
+            "1.  Go to github.com/YOUR_REPO → Settings → Pages\n"
+            "2.  Source: Deploy from a branch → branch: gh-pages → / (root)\n"
+            "3.  Click Save → copy the URL shown (e.g. https://on3vz.github.io/...)\n"
+            "4.  Create a fine-grained token: github.com → Settings →\n"
+            "    Developer settings → Personal access tokens → Fine-grained\n"
+            "5.  Set expiry to the day AFTER the field day\n"
+            "6.  Repository access: only your Field Day repo\n"
+            "7.  Permission: Contents → Read and Write (nothing else needed)\n"
+            "8.  Paste the token above and click Validate"
+        )
+        guide = tk.Frame(tab, bg="#fff8e1", relief=tk.GROOVE, bd=1, padx=10, pady=8)
+        guide.grid(row=r, column=0, columnspan=3,
+                   sticky=tk.EW, padx=(20, 0), pady=4)
+        tk.Label(guide, text=instructions, bg="#fff8e1",
+                 justify=tk.LEFT, font=("Courier New", 8),
+                 ).pack(anchor=tk.W)
+
+        tab.columnconfigure(1, weight=1)
+
     def _build_tab_export(self) -> None:
         tab = self._tab_export
         r = 0
@@ -543,6 +696,24 @@ class SettingsDialog:
 
         # Export
         self._export_folder_var.set(s.export_folder or "exports")
+
+        # Publish
+        from app.security.token_store import TokenStore
+        token_plain = TokenStore.decrypt(s.github_token_encrypted)
+        self._gh_token_var.set(token_plain)
+        self._gh_repo_var.set(s.github_repo)
+        self._gh_url_var.set(s.github_pages_url)
+        self._gh_auto_var.set(s.github_auto_publish)
+        self._gh_interval_var.set(str(s.github_publish_interval_seconds))
+        self._gh_refresh_var.set(str(s.github_page_refresh_seconds))
+        if s.github_last_published_utc:
+            try:
+                from datetime import datetime
+                dt = datetime.fromisoformat(s.github_last_published_utc)
+                self._gh_last_lbl.config(
+                    text=f"Last published: {dt.strftime('%Y-%m-%d %H:%M UTC')}")
+            except ValueError:
+                pass
 
     # =========================================================================
     # Event handlers
@@ -703,6 +874,24 @@ class SettingsDialog:
 
         # ── Export ────────────────────────────────────────────────────────────
         s.export_folder = self._export_folder_var.get().strip() or "exports"
+
+        # ── GitHub publish ────────────────────────────────────────────────────
+        from app.security.token_store import TokenStore
+        token_plain = self._gh_token_var.get().strip()
+        s.github_token_encrypted = TokenStore.encrypt(token_plain) if token_plain else ""
+        s.github_repo = self._gh_repo_var.get().strip()
+        s.github_pages_url = self._gh_url_var.get().strip()
+        s.github_auto_publish = self._gh_auto_var.get()
+        try:
+            s.github_publish_interval_seconds = max(
+                30, int(self._gh_interval_var.get() or "120"))
+        except ValueError:
+            s.github_publish_interval_seconds = 120
+        try:
+            s.github_page_refresh_seconds = max(
+                15, int(self._gh_refresh_var.get() or "60"))
+        except ValueError:
+            s.github_page_refresh_seconds = 60
 
         # ── Apply to controller ───────────────────────────────────────────────
         self._ctrl.update_settings(s)

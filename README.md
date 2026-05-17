@@ -319,6 +319,60 @@ Default export folder: **Tools → Settings → Export tab** (a sub-folder per f
 
 ---
 
+## GitHub Pages Live Publishing
+
+Publish the station × band matrix as a **live public web page** so people at home can follow the field day in real time.
+
+### Eenmalige setup (one-time)
+
+**1. Enable GitHub Pages on your repository:**
+1. Go to `github.com/ON3VZ/Field-Day-Tracker` → **Settings → Pages**
+2. Source: **Deploy from a branch** → branch `gh-pages` → `/ (root)`
+3. Click **Save** → copy the URL shown (e.g. `https://on3vz.github.io/Field-Day-Tracker/`)
+
+**2. Create a fine-grained token (minimum permissions, time-limited):**
+1. Go to `github.com` → **Settings → Developer settings → Personal access tokens → Fine-grained tokens**
+2. Click **Generate new token**
+3. Name: `Field Day Tracker`
+4. **Expiration: set to the day AFTER the field day** (e.g. one day)
+5. Repository access: **Only select repositories** → pick `Field-Day-Tracker`
+6. Permissions → Repository permissions → **Contents: Read and Write** (nothing else)
+7. Click **Generate token** → copy it immediately
+
+**3. Configure in the app:**
+1. **Tools → Settings → 📡 Publish tab**
+2. Paste the token → click **Validate Token & Repo**
+3. Enter repository: `ON3VZ/Field-Day-Tracker`
+4. Enable **Auto-publish** with interval (e.g. 120 seconds)
+5. Click Save
+
+### How it works
+
+```
+N1MM logs QSO → app updates matrix → (every 2 min) GitHub API push
+→ gh-pages branch updated → (30-60s CDN) → page refreshes at viewers
+```
+
+Total delay: **2-4 minutes** — perfectly acceptable for Field Day.
+
+### Security
+
+- The token is **AES-128 encrypted** before being stored in `app_settings.json`
+- Encryption key is derived from your **MAC address + hostname + username** — the token can only be decrypted on the same PC by the same Windows user
+- The token **never appears** in the published HTML
+- The token expires automatically on the date you set — no cleanup needed after the field day
+
+### What the page shows
+
+- Field day name, callsign, location, period
+- Statistics: open / partial / complete / total stations
+- Colour progress bar
+- Full station × band matrix with the same colours as the desktop app
+- "Last updated" timestamp + auto-refresh every 60 seconds
+- Mobile-friendly — works on phone/tablet
+
+---
+
 ## Help System
 
 Context-sensitive help is available **everywhere** in the application:
@@ -406,6 +460,7 @@ All business logic is tested independently of the GUI:
 | `tests/test_n1mm_parser.py` | XML parsing, frequency conversion, edge cases |
 | `tests/test_app_controller.py` | Controller: field day CRUD, sync, overrides, CSV, observers |
 | `tests/test_exporters.py` | CSV export columns/UTF-8/sort, PDF creation/landscape/colours |
+| `tests/test_security.py` | Token encrypt/decrypt, HTML export smoke tests |
 
 ---
 

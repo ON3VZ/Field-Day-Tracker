@@ -129,6 +129,37 @@ class AppController:
             self._matrix, self._settings
         )
 
+    def publish_to_github_pages(self) -> "PublishResult":
+        """Generate HTML and push to GitHub Pages via API."""
+        from app.exporters.github_pages_publisher import GHPagesPublisher, PublishResult
+        from app.security.token_store import TokenStore
+
+        s = self._settings
+        token = TokenStore.decrypt(s.github_token_encrypted)
+        if not token:
+            return PublishResult(success=False,
+                                 message="GitHub token not set or could not be decrypted.")
+        if not s.github_repo:
+            return PublishResult(success=False, message="GitHub repository not configured.")
+        if not self._fieldday:
+            return PublishResult(success=False, message="No active field day.")
+
+        result = GHPagesPublisher.publish(
+            token=token,
+            repo=s.github_repo,
+            fieldday=self._fieldday,
+            stations=self._stations,
+            matrix=self._matrix,
+            settings=s,
+            refresh_seconds=s.github_page_refresh_seconds,
+        )
+        if result.success:
+            s.github_last_published_utc = result.timestamp_utc
+            if result.url:
+                s.github_pages_url = result.url
+            self._save_settings()
+        return result
+
     def get_export_folder(self) -> Path:
         """Return the configured export folder, creating it if needed."""
         from app.storage.json_store import ensure_dir

@@ -65,6 +65,7 @@ class MainWindow:
         self._ctrl.register_on_fieldday_changed(self._on_fieldday_changed)
 
         self._matrix_view = None
+        self._last_publish_time = 0.0
         self._refresh_header()
         self._refresh_centre()
         bind_f1(self._root, HelpTopic.MAIN_WINDOW)
@@ -162,6 +163,9 @@ class MainWindow:
         tk.Button(bar, text="➕ " + t("menu_add_station"), command=self._cmd_add_station, **btn).pack(side=tk.LEFT, padx=2)
         tk.Label(bar, text="|", bg="#f0f0f0", fg="#cccccc").pack(side=tk.LEFT, padx=4)
         tk.Button(bar, text="⚙ " + t("menu_settings"), command=self._cmd_settings, **btn).pack(side=tk.LEFT, padx=2)
+        tk.Label(bar, text="|", bg="#f0f0f0", fg="#cccccc").pack(side=tk.RIGHT, padx=4)
+        tk.Button(bar, text="📡 Publish",
+                  command=self._cmd_publish_now, **btn).pack(side=tk.RIGHT, padx=2)
         tk.Button(bar, text="? Help (F1)", command=lambda: show_help(self._root, HelpTopic.MAIN_WINDOW), **btn).pack(side=tk.RIGHT, padx=6)
 
     def _build_centre(self) -> None:
@@ -236,11 +240,38 @@ class MainWindow:
                     and self._matrix_view is not None):
                 try:
                     self._matrix_view.refresh()
-                    return
                 except tk.TclError:
-                    pass
-            self._refresh_centre()
+                    self._refresh_centre()
+            else:
+                self._refresh_centre()
+            # Auto-publish if enabled
+            self._maybe_auto_publish()
         self._root.after(0, _update)
+
+    def _maybe_auto_publish(self) -> None:
+        """Auto-publish to GitHub Pages if configured and interval elapsed."""
+        import time
+        s = self._ctrl.settings
+        if not s.github_auto_publish:
+            return
+        if not s.github_token_encrypted or not s.github_repo:
+            return
+        now = time.monotonic()
+        if now - self._last_publish_time < s.github_publish_interval_seconds:
+            return
+        self._last_publish_time = now
+        # Run in background thread so UI doesn't block
+        import threading
+        threading.Thread(
+            target=self._publish_background,
+            daemon=True,
+        ).start()
+
+    def _publish_background(self) -> None:
+        """Background publish — called from non-UI thread."""
+        result = self._ctrl.publish_to_github_pages()
+        if not result.success:
+            log.warning("Auto-publish failed: %s", result.message)
 
     def _on_status_changed(self, status, message) -> None:
         self._root.after(0, self._update_status_bar)
@@ -456,6 +487,32 @@ class MainWindow:
         tk.Button(bf, text=t("btn_add"), command=_save, width=10,
                   bg="#1e3a5f", fg="white").pack(side=tk.LEFT, padx=4)
         tk.Button(bf, text=t("btn_cancel"), command=win.destroy, width=10).pack(side=tk.LEFT, padx=4)
+
+    def _cmd_publish_now(self) -> None:
+        """Manually publish to GitHub Pages."""
+        if not self._ctrl.has_active_fieldday:
+            messagebox.showinfo("Publish", t("no_active_fieldday"))
+            return
+        s = self._ctrl.settings
+        if not s.github_token_encrypted or not s.github_repo:
+            messagebox.showinfo(
+                "Publish",
+                "GitHub token and repository not configured.\n"
+                "Go to Tools → Settings → 📡 Publish tab.",
+            )
+            return
+        import threading
+        def _do():
+            result = self._ctrl.publish_to_github_pages()
+            self._root.after(0, lambda: self._on_publish_done(result))
+        threading.Thread(target=_do, daemon=True).start()
+
+    def _on_publish_done(self, result) -> None:
+        if result.success:
+            msg = f"Published successfully!\n\n🌐 {result.url}"
+            messagebox.showinfo("Publish", msg)
+        else:
+            messagebox.showerror("Publish failed", result.message)
 
     def _cmd_settings(self) -> None:
         from app.ui.settings_dialog import SettingsDialog

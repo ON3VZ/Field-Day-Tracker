@@ -4,6 +4,9 @@
 # PDF report generation (lightweight, pure-Python)
 reportlab>=4.0.0
 
+# Token encryption (machine-bound Fernet, AES-128 + HMAC-SHA256)
+cryptography>=41.0.0
+
 # PyInstaller for building the Windows .exe (dev/build only)
 pyinstaller>=6.0.0
 

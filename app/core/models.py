@@ -110,6 +110,15 @@ class AppSettings:
         }
     )
 
+    # ── GitHub Pages publish settings ────────────────────────────────────────
+    github_token_encrypted: str = ""    # Fernet-encrypted, machine-bound
+    github_repo: str = ""               # e.g. "ON3VZ/Field-Day-Tracker"
+    github_pages_url: str = ""          # e.g. "https://on3vz.github.io/Field-Day-Tracker/"
+    github_auto_publish: bool = False   # publish on every matrix update
+    github_publish_interval_seconds: int = 120   # min seconds between auto-publishes
+    github_page_refresh_seconds: int = 60        # HTML page auto-refresh interval
+    github_last_published_utc: str = ""          # ISO timestamp of last successful publish
+
     # ------------------------------------------------------------------
     # Serialisation
     # ------------------------------------------------------------------
@@ -127,6 +136,13 @@ class AppSettings:
             "export_folder": self.export_folder,
             "last_active_fieldday": self.last_active_fieldday,
             "csv_column_mapping": self.csv_column_mapping,
+            "github_token_encrypted": self.github_token_encrypted,
+            "github_repo": self.github_repo,
+            "github_pages_url": self.github_pages_url,
+            "github_auto_publish": self.github_auto_publish,
+            "github_publish_interval_seconds": self.github_publish_interval_seconds,
+            "github_page_refresh_seconds": self.github_page_refresh_seconds,
+            "github_last_published_utc": self.github_last_published_utc,
         }
 
     @classmethod
@@ -153,6 +169,15 @@ class AppSettings:
             for k, v in data["csv_column_mapping"].items():
                 if isinstance(k, str) and isinstance(v, str):
                     s.csv_column_mapping[k] = v
+        s.github_token_encrypted = data.get("github_token_encrypted", "")
+        s.github_repo = data.get("github_repo", "")
+        s.github_pages_url = data.get("github_pages_url", "")
+        s.github_auto_publish = bool(data.get("github_auto_publish", False))
+        s.github_publish_interval_seconds = int(
+            data.get("github_publish_interval_seconds", 120))
+        s.github_page_refresh_seconds = int(
+            data.get("github_page_refresh_seconds", 60))
+        s.github_last_published_utc = data.get("github_last_published_utc", "")
         return s
 
 
