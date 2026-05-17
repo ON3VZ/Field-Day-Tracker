@@ -471,8 +471,7 @@ class SettingsDialog:
         tk.Label(
             tab,
             text=(
-                "Publish the station matrix as a live web page on GitHub Pages.
-"
+                "Publish the station matrix as a live web page on GitHub Pages. "
                 "People at home can follow the field day in real time."
             ),
             fg="#1e3a5f", font=("Segoe UI", 9),

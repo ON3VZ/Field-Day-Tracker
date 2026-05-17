@@ -1,0 +1,20 @@
+# N1MM Field Day Tracker - Development dependencies
+# Install with: pip install -r requirements-dev.txt
+#
+# These are NOT needed to run the app — only for building and developing.
+
+# Include runtime dependencies
+-r requirements.txt
+
+# Build the Windows executable
+pyinstaller>=6.0.0
+
+# Generate application icon (build-time only)
+pillow>=10.0.0
+
+# Run tests
+# (unittest is stdlib — no extra install needed)
+
+# Optional: nicer test output
+# pytest>=7.0.0
+# pytest-cov>=4.0.0

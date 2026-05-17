@@ -387,9 +387,8 @@ class FieldDayDialog:
                 "Please select at least one band.",
             )
             return
-        fd.selected_bands = ordered_band_names := __import__(
-            "app.core.band_plan", fromlist=["ordered_band_names"]
-        ).ordered_band_names(fd.selected_bands)
+        from app.core.band_plan import ordered_band_names
+        fd.selected_bands = ordered_band_names(fd.selected_bands)
 
         # Advanced
         fd.n1mm_udp_host = self._var_n1mm_host.get().strip()

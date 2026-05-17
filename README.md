@@ -466,16 +466,75 @@ All business logic is tested independently of the GUI:
 
 ## Build as Windows .exe
 
+### Prerequisites
+
 ```cmd
+cd C:\N1MM_FieldDay
 venv\Scripts\activate
+pip install -r requirements.txt
+pip install pillow          # only needed for build (icon generation)
 pip install pyinstaller
-pyinstaller --onefile --windowed --name "N1MM Field Day Tracker" app\main.py
 ```
 
-The executable will appear in the `dist\` folder.  
-App data (field days, settings) are stored relative to the executable's location.
+### Option A — Recommended: one-click build script
+
+```cmd
+build.bat
+```
+
+This will:
+1. Check Python and dependencies
+2. Generate the app icon and Windows version info
+3. Run PyInstaller with the optimised `.spec` file
+4. Open the output folder when done
+
+**Output:** `dist\N1MM Field Day Tracker\N1MM Field Day Tracker.exe`
+
+> Keep the entire `dist\N1MM Field Day Tracker\` folder together.
+> The `.exe` needs the `_internal\` subfolder next to it.
+
+### Option B — Manual build
+
+```cmd
+python build_assets.py          # generate icon + version info
+pyinstaller N1MM_FDT.spec       # build with optimised spec
+```
+
+### Option C — Single file (simpler to share, slower first launch)
+
+```cmd
+build_onefile.bat
+```
+
+Output: `dist\N1MM Field Day Tracker.exe` (one file, ~30 MB)  
+App data is stored in `%LOCALAPPDATA%\N1MM_FDT\`
+
+### Distribution
+
+Copy the entire folder to the target PC:
+```
+N1MM Field Day Tracker\
+├── N1MM Field Day Tracker.exe   ← the executable
+└── _internal\                  ← required runtime files
+```
+
+No Python installation needed on the target PC.  
+No registry entries. Uninstall = delete the folder.
+
+### Build troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| `ModuleNotFoundError` at runtime | Add the module to `hiddenimports` in `N1MM_FDT.spec` |
+| `icon.ico not found` | Run `python build_assets.py` first |
+| UPX not found | Install UPX or set `upx=False` in the spec file |
+| Antivirus flags the exe | Add an exclusion — PyInstaller exes are commonly false-positived |
 
 ---
+
+## End-User Installation
+
+See **[INSTALL.md](INSTALL.md)** for the step-by-step guide for users who receive the pre-built `.exe`.
 
 ## Architecture Notes
 

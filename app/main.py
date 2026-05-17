@@ -31,13 +31,35 @@ from pathlib import Path
 def _resolve_app_root() -> Path:
     """Return the directory where app_settings.json and fielddays/ live.
 
-    When running from source: the *project* root (parent of ``app/``).
-    When running as a PyInstaller .exe: directory containing the executable.
+    When running from source:
+        The project root (parent of ``app/``).
+
+    When running as a PyInstaller --onedir .exe:
+        The directory containing the executable.
+        App data lives alongside the .exe, not inside the bundle.
+
+    When running as a PyInstaller --onefile .exe:
+        We use %%LOCALAPPDATA%%/N1MM_FDT/ so data survives
+        between runs (the temp unpack dir changes every run).
     """
     if getattr(sys, "frozen", False):
-        # PyInstaller sets sys.frozen and sys._MEIPASS
+        if getattr(sys, "_MEIPASS", None):
+            # Check if we are onefile (sys._MEIPASS != exe directory)
+            exe_dir = Path(sys.executable).parent
+            meipass  = Path(sys._MEIPASS)
+            if exe_dir != meipass:
+                # onefile mode: use %LOCALAPPDATA% for persistent data
+                import os
+                local_app = os.environ.get(
+                    "LOCALAPPDATA",
+                    str(Path.home() / "AppData" / "Local"),
+                )
+                app_data = Path(local_app) / "N1MM_FDT"
+                app_data.mkdir(parents=True, exist_ok=True)
+                return app_data
+        # onedir mode: data lives next to the exe
         return Path(sys.executable).parent
-    # Running from source: go up one level from app/
+    # Running from source
     return Path(__file__).parent.parent
 
 
