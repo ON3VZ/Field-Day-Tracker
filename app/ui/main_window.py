@@ -24,7 +24,6 @@ from tkinter import filedialog, messagebox, ttk
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from app.core.status import DEFAULT_STATUS_COLORS, STATUS_SYMBOLS
 from app.i18n.translations import t
 from app.integrations.n1mm_udp_listener import ListenerStatus
 from app.ui.help_system import HelpTopic, bind_f1, show_help
@@ -65,6 +64,7 @@ class MainWindow:
         self._ctrl.register_on_status_changed(self._on_status_changed)
         self._ctrl.register_on_fieldday_changed(self._on_fieldday_changed)
 
+        self._matrix_view = None
         self._refresh_header()
         self._refresh_centre()
         bind_f1(self._root, HelpTopic.MAIN_WINDOW)
@@ -174,7 +174,7 @@ class MainWindow:
         if not self._ctrl.has_active_fieldday:
             self._show_no_fieldday_placeholder()
         else:
-            self._show_matrix_preview()
+            self._show_matrix_view()
 
     def _show_no_fieldday_placeholder(self) -> None:
         wrapper = tk.Frame(self._centre, bg="#f5f5f5")
@@ -187,82 +187,11 @@ class MainWindow:
         tk.Button(wrapper, text=t("menu_new_fieldday"), command=self._cmd_new_fieldday,
                   bg="#1e3a5f", fg="white", padx=12, pady=6, font=("Segoe UI", 10)).pack(pady=16)
 
-    def _show_matrix_preview(self) -> None:
-        """Interim matrix preview — full MatrixView comes in Step 8."""
-        fd = self._ctrl.fieldday
-        summary = self._ctrl.get_summary()
-        stations = self._ctrl.stations
-        matrix = self._ctrl.matrix
-        bands = fd.selected_bands
-
-        # Summary bar
-        info = tk.Frame(self._centre, bg="#e8eaf6", pady=6)
-        info.pack(fill=tk.X)
-        for label, key in [
-            (t("stat_total_stations"), "total_stations"),
-            (t("stat_total_bands"), "total_bands"),
-            (t("stat_worked"), "worked"),
-            (t("stat_unworked"), "unworked"),
-            (t("stat_fully_worked"), "fully_worked"),
-            (t("stat_partially_worked"), "partially_worked"),
-            (t("stat_manual_overrides"), "overrides"),
-        ]:
-            f = tk.Frame(info, bg="#e8eaf6")
-            f.pack(side=tk.LEFT, padx=12)
-            tk.Label(f, text=str(summary.get(key, 0)), bg="#e8eaf6",
-                     font=("Segoe UI", 14, "bold"), fg="#1e3a5f").pack()
-            tk.Label(f, text=label, bg="#e8eaf6",
-                     font=("Segoe UI", 8), fg="#555555").pack()
-
-        # Matrix title
-        tk.Label(self._centre,
-                 text=f"Matrix: {fd.name}  —  Full interactive matrix in Step 8",
-                 bg="#f5f5f5", fg="#1e3a5f",
-                 font=("Segoe UI", 10, "bold")).pack(anchor=tk.W, padx=8, pady=(8, 2))
-
-        # Header row
-        header = tk.Frame(self._centre, bg="#1e3a5f")
-        header.pack(fill=tk.X, padx=8)
-        tk.Label(header, text="Station", bg="#1e3a5f", fg="white",
-                 width=14, anchor=tk.W, font=("Segoe UI", 9, "bold")).grid(row=0, column=0, padx=2)
-        for col, band in enumerate(bands, 1):
-            tk.Label(header, text=band, bg="#1e3a5f", fg="white",
-                     width=6, font=("Segoe UI", 9, "bold")).grid(row=0, column=col, padx=1)
-
-        # Scrollable rows
-        canvas_frame = tk.Frame(self._centre, bg="#f5f5f5")
-        canvas_frame.pack(fill=tk.BOTH, expand=True, padx=8, pady=(0, 4))
-        canvas = tk.Canvas(canvas_frame, bg="#f5f5f5", highlightthickness=0)
-        sb = ttk.Scrollbar(canvas_frame, orient=tk.VERTICAL, command=canvas.yview)
-        canvas.configure(yscrollcommand=sb.set)
-        sb.pack(side=tk.RIGHT, fill=tk.Y)
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-        inner = tk.Frame(canvas, bg="#f5f5f5")
-        cw = canvas.create_window((0, 0), window=inner, anchor=tk.NW)
-
-        for row_idx, station in enumerate(stations[:150]):
-            bg = "#ffffff" if row_idx % 2 == 0 else "#f4f4f4"
-            tk.Label(inner, text=station.normalized_callsign, bg=bg,
-                     width=14, anchor=tk.W, font=("Segoe UI", 9)).grid(
-                row=row_idx, column=0, padx=2, pady=1, sticky=tk.W)
-            for col, band in enumerate(bands, 1):
-                key = (station.normalized_callsign, band)
-                cell = matrix.get(key)
-                sv = cell.status.value if cell else "not_worked"
-                cell_bg = DEFAULT_STATUS_COLORS.get(sv, "#FFFFFF")
-                sym = STATUS_SYMBOLS.get(sv, "")
-                tk.Label(inner, text=sym, bg=cell_bg, width=6,
-                         font=("Segoe UI", 9), relief=tk.GROOVE, bd=1).grid(
-                    row=row_idx, column=col, padx=1, pady=1)
-
-        def _resize(e):
-            canvas.configure(scrollregion=canvas.bbox("all"))
-            canvas.itemconfig(cw, width=e.width)
-        inner.bind("<Configure>", _resize)
-        canvas.bind("<Configure>", _resize)
-        canvas.bind_all("<MouseWheel>",
-                        lambda e: canvas.yview_scroll(int(-1*(e.delta/120)), "units"))
+    def _show_matrix_view(self) -> None:
+        """Show the full interactive MatrixView."""
+        from app.ui.matrix_view import MatrixView
+        self._matrix_view = MatrixView(self._centre, self._ctrl)
+        self._matrix_view.pack(fill=tk.BOTH, expand=True)
 
     def _build_status_bar(self) -> None:
         bar = tk.Frame(self._root, bg="#e0e0e0", pady=3)
@@ -300,7 +229,18 @@ class MainWindow:
         )
 
     def _on_matrix_changed(self) -> None:
-        self._root.after(0, self._refresh_centre)
+        def _update():
+            # If we have a live MatrixView, just refresh it (no rebuild)
+            if (self._ctrl.has_active_fieldday
+                    and hasattr(self, "_matrix_view")
+                    and self._matrix_view is not None):
+                try:
+                    self._matrix_view.refresh()
+                    return
+                except tk.TclError:
+                    pass
+            self._refresh_centre()
+        self._root.after(0, _update)
 
     def _on_status_changed(self, status, message) -> None:
         self._root.after(0, self._update_status_bar)
