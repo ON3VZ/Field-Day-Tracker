@@ -55,8 +55,30 @@ N1MM Logger+ must be configured to broadcast Contact data to this application.
 ### What gets broadcast
 
 N1MM sends a `<contactinfo>` XML message over UDP for every logged contact.
-This application listens on `127.0.0.1:12060` (configurable) and processes
-those messages in real time.
+Key fields used by this application:
+
+| XML field | Description |
+|-----------|-------------|
+| `<call>` | Callsign of the worked station |
+| `<band>` | Band (e.g. `40M`, `2M`) |
+| `<rxfreq>` | Frequency in 10-Hz units (e.g. `703000` = 7.030 MHz) |
+| `<mode>` | Operating mode (`CW`, `SSB`, `FM`, …) |
+| `<timestamp>` | UTC timestamp (`YYYY-MM-DD HH:MM:SS`) |
+| `<ID>` | Unique contact ID (used for deduplication) |
+| `<contestname>` | Should be `FDREG1` |
+
+If N1MM does not send a `<band>` field, the band is automatically derived from the frequency.
+
+### Connection status
+
+The status bar shows the real-time connection state:
+
+| Status | Meaning |
+|--------|---------|
+| Waiting… | Listening, no data received yet |
+| Connected | Data received within the freshness threshold |
+| No recent data | No packet for longer than the threshold (default 30s) |
+| Error | UDP socket could not be opened — check host/port in Settings |
 
 ---
 
@@ -328,6 +350,7 @@ All business logic is tested independently of the GUI:
 | `tests/test_csv_importer.py` | Import, re-import, column mapping, edge cases |
 | `tests/test_matching.py` | QSO↔station matching, band resolution |
 | `tests/test_sync_engine.py` | All 7 business rules, real-time update, statistics |
+| `tests/test_n1mm_parser.py` | XML parsing, frequency conversion, edge cases |
 
 ---
 
