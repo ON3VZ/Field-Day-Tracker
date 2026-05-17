@@ -351,6 +351,7 @@ All business logic is tested independently of the GUI:
 | `tests/test_matching.py` | QSO↔station matching, band resolution |
 | `tests/test_sync_engine.py` | All 7 business rules, real-time update, statistics |
 | `tests/test_n1mm_parser.py` | XML parsing, frequency conversion, edge cases |
+| `tests/test_app_controller.py` | Controller: field day CRUD, sync, overrides, CSV, observers |
 
 ---
 
@@ -377,3 +378,5 @@ App data (field days, settings) are stored relative to the executable's location
 - **Safe writes** — atomic temp-file-then-replace for all JSON files
 - **Configurable CSV** — column mapping makes any CSV format work
 - **Help everywhere** — F1 + ? button on every screen, 4 languages
+- **AppController** — single coordinator owns all state; UI only calls its methods
+- **Observer pattern** — UDP listener notifies UI via callbacks, marshalled via `root.after()`

@@ -65,31 +65,18 @@ if str(_src_root) not in sys.path:
 
 
 def _bootstrap() -> None:
-    """Load settings and start the GUI."""
+    """Initialise controller and start the GUI."""
     from app.i18n.translations import set_language
-
-    # ── Try to load persisted settings ──────────────────────────────────
-    settings: dict = {}
-    settings_path = APP_ROOT / "app_settings.json"
-    try:
-        import json
-        if settings_path.exists():
-            with settings_path.open(encoding="utf-8") as fh:
-                settings = json.load(fh)
-            log.info("Loaded app settings from %s", settings_path)
-    except Exception as exc:  # noqa: BLE001
-        log.warning("Could not load app settings (%s) – using defaults.", exc)
-
-    # ── Apply saved language ─────────────────────────────────────────────
-    language = settings.get("ui_language", "en")
-    set_language(language)
-    log.info("UI language set to: %s", language)
-
-    # ── Create and run the main window ───────────────────────────────────
+    from app.app_controller import AppController
     from app.ui.main_window import MainWindow
 
+    # Controller owns all state
+    controller = AppController(APP_ROOT)
+    controller.startup()   # loads settings, opens last field day, starts UDP
+
+    # GUI
     root = tk.Tk()
-    app = MainWindow(root, app_root=APP_ROOT, initial_settings=settings)
+    MainWindow(root, controller)
     root.mainloop()
 
 
